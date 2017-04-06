@@ -1,0 +1,78 @@
+#!/bin/bash
+
+
+PROGRAM=$(basename $0)
+
+
+sub_help() {
+  echo "Usage: ${PROGRAM} <subcommand> [options]"
+  echo "Subcommands:"
+  echo "    build - invoke cmake/make to build the code"
+  echo "    clean - clean things up"
+  echo "    deb - build a debian package"
+  echo "    test - run the unit test suite"
+}
+
+
+sub_build() {
+  cargo build --release || exit 1
+}
+
+
+sub_clean() {
+  git clean -fxd
+}
+
+
+sub_test() {
+  cargo test
+}
+
+
+sub_deb() {
+  sub_build
+  IFS='.' read -ra VERSION <<< "$(cat VERSION)"
+  DEB_VERSION="${VERSION[0]}.${VERSION[1]}-${VERSION[2]}"
+  DEB_ROOT="gallocy-rs_$DEB_VERSION"
+  mkdir "$DEB_ROOT"
+  mkdir -p "$DEB_ROOT/opt/gallocy-rs/bin"
+  mkdir -p "$DEB_ROOT/etc/gallocy-rs"
+  mkdir -p "$DEB_ROOT/etc/init.d"
+  cp -r ./target/release/gallocy-rs "$DEB_ROOT/opt/gallocy-rs/bin/gallocy-rs"
+  cp ./etc/gallocy.init "$DEB_ROOT/etc/init.d/gallocy-rs"
+  chmod 755 "$DEB_ROOT/etc/init.d/gallocy-rs"
+  # Create the debian directory
+  mkdir -p "$DEB_ROOT/DEBIAN"
+  # Create the control file
+  echo "Package: gallocy-rs" >> "$DEB_ROOT/DEBIAN/control"
+  echo "Version: $DEB_VERSION" >> "$DEB_ROOT/DEBIAN/control"
+  echo "Section: base" >> "$DEB_ROOT/DEBIAN/control"
+  echo "Priority: optional" >> "$DEB_ROOT/DEBIAN/control"
+  echo "Architecture: amd64" >> "$DEB_ROOT/DEBIAN/control"
+  echo "Depends: " >> "$DEB_ROOT/DEBIAN/control"
+  echo "Maintainer: Stephen Holsapple <sholsapp@gmail.com>" >> "$DEB_ROOT/DEBIAN/control"
+  echo "Description: The gallocy server." >> "$DEB_ROOT/DEBIAN/control"
+  echo "update-rc.d -f gallocy-rs defaults" >> "$DEB_ROOT/DEBIAN/postinst"
+  # Create the post install script
+  chmod 755 "$DEB_ROOT/DEBIAN/postinst"
+  dpkg-deb --build "$DEB_ROOT"
+  dpkg -c "$DEB_ROOT.deb"
+  mkdir build
+  mv "$DEB_ROOT.deb" build
+}
+
+
+SUBCOMMAND=$1
+case $SUBCOMMAND in
+  "" | "-h" | "--help")
+    sub_help
+    ;;
+  *)
+    shift
+    sub_${SUBCOMMAND} $@
+    if [ $? = 127 ]; then
+      echo "Error: '$SUBCOMMAND' is not a known subcommand." >&2
+      exit 1
+    fi
+    ;;
+esac
