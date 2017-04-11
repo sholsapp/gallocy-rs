@@ -2,6 +2,8 @@ use std::fmt::{self, Write};
 
 use bytes::{BytesMut, BufMut};
 
+use minihttp::date;
+
 pub struct Response {
     headers: Vec<(String, String)>,
     response: String,
@@ -40,7 +42,7 @@ impl Response {
 
 pub fn encode(msg: Response, buf: &mut BytesMut) {
     let length = msg.response.len();
-    let now = ::date::now();
+    let now = date::now();
 
     write!(FastWrite(buf), "\
         HTTP/1.1 {}\r\n\
@@ -58,6 +60,8 @@ pub fn encode(msg: Response, buf: &mut BytesMut) {
 
     push(buf, "\r\n".as_bytes());
     push(buf, msg.response.as_bytes());
+
+    info!("What is {:?}", buf);
 }
 
 fn push(buf: &mut BytesMut, data: &[u8]) {

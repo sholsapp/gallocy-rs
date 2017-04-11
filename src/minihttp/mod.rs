@@ -1,21 +1,11 @@
-extern crate bytes;
-extern crate futures;
-extern crate httparse;
-extern crate net2;
-extern crate time;
-extern crate tokio_core;
-extern crate tokio_io;
-extern crate tokio_proto;
-extern crate tokio_service;
-
 mod date;
 mod request;
 mod response;
 
 use std::io;
 
-pub use request::Request;
-pub use response::Response;
+pub use self::request::Request;
+pub use self::response::Response;
 
 use bytes::BytesMut;
 use tokio_io::codec::{Encoder, Decoder, Framed};
@@ -52,6 +42,7 @@ impl Encoder for HttpCodec {
 
     fn encode(&mut self, msg: Response, buf: &mut BytesMut) -> io::Result<()> {
         response::encode(msg, buf);
+        println!("{:?}", buf);
         Ok(())
     }
 }

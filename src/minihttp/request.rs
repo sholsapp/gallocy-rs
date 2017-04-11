@@ -1,6 +1,6 @@
 use std::{io, slice, str, fmt};
 
-use bytes::BytesMut;
+use bytes::{Bytes, BytesMut};
 
 use httparse;
 
@@ -11,6 +11,7 @@ pub struct Request {
     // TODO: use a small vec to avoid this unconditional allocation
     headers: Vec<(Slice, Slice)>,
     data: BytesMut,
+    body: Bytes,
 }
 
 type Slice = (usize, usize);
@@ -38,6 +39,10 @@ impl Request {
             headers: self.headers.iter(),
             req: self,
         }
+    }
+
+    pub fn body(&self) -> &str {
+        str::from_utf8(&self.body).unwrap()
     }
 
     fn slice(&self, slice: &Slice) -> &[u8] {
@@ -89,6 +94,7 @@ pub fn decode(buf: &mut BytesMut) -> io::Result<Option<Request>> {
         version: version,
         headers: headers,
         data: buf.split_to(amt),
+        body: buf.clone().freeze(),
     }.into())
 }
 
