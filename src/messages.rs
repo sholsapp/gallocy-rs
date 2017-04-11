@@ -1,11 +1,11 @@
 use std;
 
-#[derive(RustcEncodable)]
+#[derive(RustcEncodable,RustcDecodable)]
 pub struct Message {
     pub message: String,
 }
 
-#[derive(RustcEncodable)]
+#[derive(RustcEncodable,RustcDecodable)]
 pub struct RequestVote {
     pub commit_index: u64,
     pub term: u64,
@@ -13,7 +13,7 @@ pub struct RequestVote {
     // sender: String,
 }
 
-#[derive(RustcEncodable)]
+#[derive(RustcEncodable,RustcDecodable)]
 pub struct AppendEntries {
     pub leader_commit: u64,
     pub previous_log_index: u64,
