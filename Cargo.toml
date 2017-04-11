@@ -4,15 +4,22 @@ version = "0.1.0"
 authors = ["Stephen Holsapple <sholsapp@gmail.com>"]
 
 [dependencies]
+bytes = "0.4"
 clap = "2.12.1"
 env_logger = "0.3.5"
-futures = "0.1.6"
+futures = "0.1.11"
+httparse = "1.1.2"
 log = "0.3.6"
+net2 = "0.2"
+num_cpus = "1.0"
+rand = "*"
 rustc-serialize = "0.3"
-tokio-minihttp = { git = "https://github.com/tokio-rs/tokio-minihttp" }
+serde_json = "0.8"
+time = "0.1"
+tokio-core = "0.1.0"
+tokio-io = "0.1"
 tokio-proto = "0.1.1"
 tokio-service = "0.1.0"
-rand = "*"
 
 [[bin]]
 name = "gallocy-rs"

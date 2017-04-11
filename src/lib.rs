@@ -1,9 +1,14 @@
 #[macro_use] extern crate log;
+extern crate bytes;
 extern crate clap;
 extern crate env_logger;
 extern crate futures;
+extern crate httparse;
+extern crate net2;
 extern crate rustc_serialize;
-extern crate tokio_minihttp;
+extern crate time;
+extern crate tokio_core;
+extern crate tokio_io;
 extern crate tokio_proto;
 extern crate tokio_service;
 
@@ -11,7 +16,6 @@ use std::io;
 
 use clap::{Arg, App};
 use futures::future;
-use tokio_minihttp::{Request, Response, Http};
 use tokio_proto::TcpServer;
 use tokio_service::Service;
 
@@ -19,9 +23,14 @@ pub mod state;
 pub mod timer;
 pub mod messages;
 
-use messages::Message;
+mod minihttp;
+use minihttp::{Request, Response, Http};
 
-struct StateService;
+use messages::{Message, RequestVote, AppendEntries};
+
+struct StateService {
+    state: state::State,
+}
 
 impl Service for StateService {
     type Request = Request;
@@ -31,7 +40,7 @@ impl Service for StateService {
     fn call(&self, req: Request) -> Self::Future {
         let resp = match req.path() {
             "/healthcheck" => self.health_check(&req),
-            "/raft/request_vote" => self.not_found(&req),
+            "/raft/request_vote" => self.request_vote(&req),
             "/raft/append_entries" => self.not_found(&req),
             "/raft/request" => self.not_found(&req),
             _ => self.not_found(&req),
@@ -40,14 +49,15 @@ impl Service for StateService {
         for (k, v) in req.headers() {
             info!("\t > {}: {}", k, String::from_utf8(Vec::from(v)).unwrap());
         }
+        info!("\t {}", req.body());
         future::ok(resp)
     }
 }
 
 impl StateService {
 
-    fn health_check(&self, req: &Request) -> Response {
-       let msg = Message {
+    fn health_check(&self, _: &Request) -> Response {
+        let msg = Message {
             message: "GOOD".to_owned(),
         };
         let mut resp = Response::new();
@@ -57,9 +67,22 @@ impl StateService {
         resp
     }
 
-    fn not_found(&self, req: &Request) -> Response {
+    fn request_vote(&self, req: &Request) -> Response {
+        info!("/raft/request_vote");
+        let json: Message = rustc_serialize::json::decode(req.body()).unwrap();
         let mut resp = Response::new();
-        resp.status_code(400, "Not found");
+        resp.header("Content-Type", "application/json");
+        resp.header("Connection", "close");
+        resp.status_code(200, "GOOD");
+        resp.body(&rustc_serialize::json::encode(&json).unwrap());
+        resp
+    }
+
+    fn not_found(&self, _: &Request) -> Response {
+        let mut resp = Response::new();
+        resp.header("Content-Type", "text/html; charset=UTF-8");
+        resp.status_code(404, "Not Found");
+        resp.body("NOT FOUND");
         resp
     }
 }
@@ -82,7 +105,10 @@ pub fn main() {
     let port = matches.value_of("port").unwrap_or("8080");
     let host = matches.value_of("host").unwrap_or("0.0.0.0");
     let addr = format!("{}:{}", host, port).parse().unwrap();
+    let state = state::State::new();
     info!("Serving on {}...", addr);
     TcpServer::new(Http, addr)
-        .serve(|| Ok(StateService));
+        .serve(move || Ok(StateService {
+            state: state.clone(),
+        }));
 }
