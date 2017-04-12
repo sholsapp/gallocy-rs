@@ -1,6 +1,6 @@
 use std::{io, slice, str, fmt};
 
-use bytes::{Bytes, BytesMut};
+use bytes::BytesMut;
 
 use httparse;
 
@@ -11,15 +11,12 @@ pub struct Request {
     // TODO: use a small vec to avoid this unconditional allocation
     headers: Vec<(Slice, Slice)>,
     data: BytesMut,
-    body: Bytes,
+    body: BytesMut,
 }
 
 type Slice = (usize, usize);
 
-pub struct RequestHeaders<'req> {
-    headers: slice::Iter<'req, (Slice, Slice)>,
-    req: &'req Request,
-}
+
 
 impl Request {
     pub fn method(&self) -> &str {
@@ -68,7 +65,9 @@ pub fn decode(buf: &mut BytesMut) -> io::Result<Option<Request>> {
         }));
 
         let amt = match status {
+            // We have read all of the data...
             httparse::Status::Complete(amt) => amt,
+            // We need to read more data...
             httparse::Status::Partial => return Ok(None),
         };
 
@@ -94,8 +93,13 @@ pub fn decode(buf: &mut BytesMut) -> io::Result<Option<Request>> {
         version: version,
         headers: headers,
         data: buf.split_to(amt),
-        body: buf.clone().freeze(),
+        body: buf.take(),
     }.into())
+}
+
+pub struct RequestHeaders<'req> {
+    headers: slice::Iter<'req, (Slice, Slice)>,
+    req: &'req Request,
 }
 
 impl<'req> Iterator for RequestHeaders<'req> {

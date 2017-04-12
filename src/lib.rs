@@ -13,6 +13,7 @@ extern crate tokio_proto;
 extern crate tokio_service;
 
 use std::io;
+use std::sync::Arc;
 
 use clap::{Arg, App};
 use futures::future;
@@ -22,14 +23,13 @@ use tokio_service::Service;
 pub mod state;
 pub mod timer;
 pub mod messages;
+pub mod minihttp;
 
-mod minihttp;
 use minihttp::{Request, Response, Http};
-
 use messages::{Message, RequestVote, AppendEntries};
 
 struct StateService {
-    state: state::State,
+    state: Arc<state::State>,
 }
 
 impl Service for StateService {
@@ -38,6 +38,7 @@ impl Service for StateService {
     type Error = io::Error;
     type Future = future::Ok<Response, io::Error>;
     fn call(&self, req: Request) -> Self::Future {
+        info!("{:?}", req);
         let resp = match req.path() {
             "/healthcheck" => self.health_check(&req),
             "/raft/request_vote" => self.request_vote(&req),
@@ -45,17 +46,14 @@ impl Service for StateService {
             "/raft/request" => self.not_found(&req),
             _ => self.not_found(&req),
         };
-        info!("{} - {}", req.method(), req.path());
-        for (k, v) in req.headers() {
-            info!("\t > {}: {}", k, String::from_utf8(Vec::from(v)).unwrap());
-        }
-        info!("\t {}", req.body());
+        info!("{:?}", resp);
         future::ok(resp)
     }
 }
 
 impl StateService {
-
+    /// The health check route handler.
+    ///
     fn health_check(&self, _: &Request) -> Response {
         let msg = Message {
             message: "GOOD".to_owned(),
@@ -66,18 +64,24 @@ impl StateService {
         resp.body(&rustc_serialize::json::encode(&msg).unwrap());
         resp
     }
-
+    /// The request vote route handler.
+    ///
     fn request_vote(&self, req: &Request) -> Response {
-        info!("/raft/request_vote");
-        let json: Message = rustc_serialize::json::decode(req.body()).unwrap();
         let mut resp = Response::new();
-        resp.header("Content-Type", "application/json");
-        resp.header("Connection", "close");
-        resp.status_code(200, "GOOD");
-        resp.body(&rustc_serialize::json::encode(&json).unwrap());
-        resp
-    }
+        if let Ok(json) = rustc_serialize::json::decode(req.body()) as Result<Message, rustc_serialize::json::DecoderError> {
+            info!("current term: {}", self.state.get_current_term());
+            resp.header("Content-Type", "application/json");
+            resp.status_code(200, "OK");
+            resp.body(&rustc_serialize::json::encode(&json).unwrap());
+            resp
+        } else {
+            resp.status_code(500, "Internal Server Error");
+            resp
+        }
 
+    }
+    /// The not found route handler.
+    ///
     fn not_found(&self, _: &Request) -> Response {
         let mut resp = Response::new();
         resp.header("Content-Type", "text/html; charset=UTF-8");
@@ -105,7 +109,7 @@ pub fn main() {
     let port = matches.value_of("port").unwrap_or("8080");
     let host = matches.value_of("host").unwrap_or("0.0.0.0");
     let addr = format!("{}:{}", host, port).parse().unwrap();
-    let state = state::State::new();
+    let state = Arc::new(state::State::new());
     info!("Serving on {}...", addr);
     TcpServer::new(Http, addr)
         .serve(move || Ok(StateService {

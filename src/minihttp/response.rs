@@ -1,4 +1,4 @@
-use std::fmt::{self, Write};
+use std::fmt::{self, Write, Debug};
 
 use bytes::{BytesMut, BufMut};
 
@@ -39,6 +39,14 @@ impl Response {
         self
     }
 }
+
+impl Debug for Response {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "<HTTP Response {} {}>", self.status_message, self.response)
+    }
+}
+
+
 
 pub fn encode(msg: Response, buf: &mut BytesMut) {
     let length = msg.response.len();

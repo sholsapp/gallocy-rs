@@ -42,7 +42,6 @@ impl Encoder for HttpCodec {
 
     fn encode(&mut self, msg: Response, buf: &mut BytesMut) -> io::Result<()> {
         response::encode(msg, buf);
-        println!("{:?}", buf);
         Ok(())
     }
 }
