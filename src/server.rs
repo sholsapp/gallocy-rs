@@ -7,7 +7,7 @@ use futures::future;
 
 use state;
 use minihttp::{Request, Response};
-use messages::{Message, RequestVote, AppendEntries};
+use messages::{Message};
 
 
 pub struct StateService {

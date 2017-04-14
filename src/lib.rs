@@ -21,7 +21,6 @@ pub mod server;
 use std::sync::{Arc, Mutex};
 
 use clap::{Arg, App};
-use futures::future;
 use tokio_proto::TcpServer;
 
 use minihttp::Http;
@@ -45,7 +44,6 @@ pub fn main() {
     let host = matches.value_of("host").unwrap_or("0.0.0.0");
     let addr = format!("{}:{}", host, port).parse().unwrap();
     let state = Arc::new(Mutex::new(state::State::new()));
-    state.lock().unwrap().start();
     info!("Serving on {}...", addr);
     TcpServer::new(Http, addr)
         .serve(move || Ok(server::StateService {
