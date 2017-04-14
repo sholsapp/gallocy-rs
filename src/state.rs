@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::sync::Condvar;
 use std::time::Duration;
 
@@ -17,7 +17,8 @@ pub struct State {
     commit_index: u64,
     last_applied: u64,
     state: RaftState,
-    timer: Arc<timer::Timer>,
+    timer: Arc<Mutex<timer::Timer>>,
+    timed_out: Arc<Mutex<Condvar>>,
     // log: String,
     // voted_for: String, 
 }
@@ -32,7 +33,7 @@ const LEADER_JITTER: u64 = 0;
 
 impl State {
     pub fn new() -> State {
-        let cv = Arc::new(Condvar::new());
+        let timed_out = Arc::new(Mutex::new(Condvar::new()));
         State {
             current_term: 0,
             commit_index: 0,
@@ -40,10 +41,12 @@ impl State {
             state: RaftState::FOLLOWER,
             // voted_for: "".to_owned(),
             // log: "".to_owned(),
-            timer: Arc::new(timer::Timer::new(
+            timed_out: timed_out.clone(),
+            timer: Arc::new(Mutex::new(timer::Timer::new(
                 Duration::from_millis(FOLLOWER_STEP),
                 Duration::from_millis(FOLLOWER_JITTER),
-                cv)), 
+                timed_out.clone(),
+            ))),
         }
     }
 
@@ -72,5 +75,23 @@ impl State {
     pub fn set_last_applied(&mut self, index: u64) -> u64 {
         self.last_applied = index;
         self.last_applied
+    }
+
+    /// Start underlying workers.
+    ///
+    /// This method must be called before the object is useable.
+    ///
+    pub fn start(&mut self) {
+        // Unwrap to indicate that we should never fail while holding the lock.
+        self.timer.lock().unwrap().start();
+    }
+
+    /// Stop underlying workers.
+    ///
+    /// This method should be called before exiting the program.
+    ///
+    pub fn stop(&mut self) {
+        // Unwrap to indicate that we should never fail while holding the lock.
+        self.timer.lock().unwrap().stop();
     }
 }

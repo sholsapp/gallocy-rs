@@ -24,7 +24,7 @@ pub struct Timer {
     // Internal thread handle to join on shutdown.
     handle: Option<std::thread::JoinHandle<()>>,
     // Condition variable signalled if/when timer expires.
-    pub timed_out: Arc<Condvar>,
+    pub timed_out: Arc<Mutex<Condvar>>,
     // The amount of time to count down from.
     pub step: Duration,
     // The amount of time, if any, to randomize the count down from.
@@ -44,7 +44,7 @@ impl Timer {
     /// * `jitter` - The duration of time to randomize each count down.
     /// * `timed_out` - Condition to signal if the timer expires.
     ///
-    pub fn new(step: Duration, jitter: Duration, timed_out: Arc<Condvar>) -> Timer {
+    pub fn new(step: Duration, jitter: Duration, timed_out: Arc<Mutex<Condvar>>) -> Timer {
         Timer {
             handle: None,
             alive: Arc::new(AtomicBool::new(false)),
@@ -80,7 +80,7 @@ impl Timer {
     fn spin(alive: Arc<AtomicBool>,
             cv: Arc<Condvar>,
             m: Arc<Mutex<bool>>,
-            timed_out: Arc<Condvar>,
+            timed_out: Arc<Mutex<Condvar>>,
             expiries: Arc<AtomicUsize>,
             step: Duration,
             jitter: Duration) {
@@ -91,7 +91,7 @@ impl Timer {
                 Ok((_, result)) => {
                     if result.timed_out() {
                         expiries.fetch_add(1, Ordering::SeqCst);
-                        timed_out.notify_all();
+                        timed_out.lock().unwrap().notify_all();
                     }
                 },
                 Err(e) => {
