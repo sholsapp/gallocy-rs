@@ -46,8 +46,6 @@ impl Debug for Response {
     }
 }
 
-
-
 pub fn encode(msg: Response, buf: &mut BytesMut) {
     let length = msg.response.len();
     let now = date::now();
@@ -68,8 +66,6 @@ pub fn encode(msg: Response, buf: &mut BytesMut) {
 
     push(buf, "\r\n".as_bytes());
     push(buf, msg.response.as_bytes());
-
-    info!("What is {:?}", buf);
 }
 
 fn push(buf: &mut BytesMut, data: &[u8]) {
