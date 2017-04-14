@@ -17,6 +17,8 @@ pub mod timer;
 pub mod messages;
 pub mod minihttp;
 pub mod server;
+pub mod client;
+pub mod machine;
 
 use std::sync::{Arc, Mutex};
 
