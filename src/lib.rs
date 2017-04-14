@@ -12,17 +12,17 @@ extern crate tokio_io;
 extern crate tokio_proto;
 extern crate tokio_service;
 
-use std::sync::{Arc, Mutex};
-
-use clap::{Arg, App};
-use futures::future;
-use tokio_proto::TcpServer;
-
 pub mod state;
 pub mod timer;
 pub mod messages;
 pub mod minihttp;
 pub mod server;
+
+use std::sync::{Arc, Mutex};
+
+use clap::{Arg, App};
+use futures::future;
+use tokio_proto::TcpServer;
 
 use minihttp::Http;
 

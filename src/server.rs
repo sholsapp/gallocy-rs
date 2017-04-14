@@ -9,16 +9,32 @@ use state;
 use minihttp::{Request, Response};
 use messages::{Message, RequestVote, AppendEntries};
 
+
 pub struct StateService {
     // Shared state for implementing Raft consensus.
     pub state: Arc<Mutex<state::State>>,
 }
 
+
 impl Service for StateService {
+
+    // Service request type - see tokio.rs.
     type Request = Request;
+
+    // Service response type - see tokio.rs.
     type Response = Response;
+
+    // Service error type - see tokio.rs.
     type Error = io::Error;
+
+    // Service future type - see tokio.rs.
     type Future = future::Ok<Response, io::Error>;
+
+    /// Handle a request.
+    ///
+    /// Handle a request by dispatching to the appropriate routes implemented
+    /// by StateService and returning the value as a future.
+    ///
     fn call(&self, req: Request) -> Self::Future {
         info!("{:?}", req);
         let resp = match req.path() {
@@ -33,7 +49,9 @@ impl Service for StateService {
     }
 }
 
+
 impl StateService {
+
     /// The health check route handler.
     ///
     fn health_check(&self, _: &Request) -> Response {
@@ -46,6 +64,7 @@ impl StateService {
         resp.body(&rustc_serialize::json::encode(&msg).unwrap());
         resp
     }
+
     /// The request vote route handler.
     ///
     fn request_vote(&self, req: &Request) -> Response {
@@ -62,6 +81,7 @@ impl StateService {
         }
 
     }
+
     /// The not found route handler.
     ///
     fn not_found(&self, _: &Request) -> Response {
