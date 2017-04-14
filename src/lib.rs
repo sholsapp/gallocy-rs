@@ -13,7 +13,7 @@ extern crate tokio_proto;
 extern crate tokio_service;
 
 use std::io;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use clap::{Arg, App};
 use futures::future;
@@ -29,7 +29,8 @@ use minihttp::{Request, Response, Http};
 use messages::{Message, RequestVote, AppendEntries};
 
 struct StateService {
-    state: Arc<state::State>,
+    // Internal state.
+    state: Arc<Mutex<state::State>>,
 }
 
 impl Service for StateService {
@@ -69,7 +70,7 @@ impl StateService {
     fn request_vote(&self, req: &Request) -> Response {
         let mut resp = Response::new();
         if let Ok(json) = rustc_serialize::json::decode(req.body()) as Result<Message, rustc_serialize::json::DecoderError> {
-            info!("current term: {}", self.state.get_current_term());
+            info!("current term: {}", self.state.lock().unwrap().get_current_term());
             resp.header("Content-Type", "application/json");
             resp.status_code(200, "OK");
             resp.body(&rustc_serialize::json::encode(&json).unwrap());
@@ -109,7 +110,8 @@ pub fn main() {
     let port = matches.value_of("port").unwrap_or("8080");
     let host = matches.value_of("host").unwrap_or("0.0.0.0");
     let addr = format!("{}:{}", host, port).parse().unwrap();
-    let state = Arc::new(state::State::new());
+    let state = Arc::new(Mutex::new(state::State::new()));
+    state.lock().unwrap().start();
     info!("Serving on {}...", addr);
     TcpServer::new(Http, addr)
         .serve(move || Ok(StateService {
