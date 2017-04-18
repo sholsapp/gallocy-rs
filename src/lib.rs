@@ -24,6 +24,7 @@ use std::sync::{Arc, Mutex};
 
 use clap::{Arg, App};
 use tokio_proto::TcpServer;
+use tokio_core::reactor::Core;
 
 use minihttp::Http;
 

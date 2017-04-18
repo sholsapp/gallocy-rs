@@ -5,26 +5,20 @@ use bytes::BytesMut;
 use httparse;
 
 pub struct Request {
-    method: Slice,
-    path: Slice,
+    method: String,
+    path: String,
     version: u8,
-    // TODO: use a small vec to avoid this unconditional allocation
-    headers: Vec<(Slice, Slice)>,
-    data: BytesMut,
-    body: BytesMut,
+    headers: Vec<(String, String)>,
+    body: String,
 }
-
-type Slice = (usize, usize);
-
-
 
 impl Request {
     pub fn method(&self) -> &str {
-        str::from_utf8(self.slice(&self.method)).unwrap()
+        &*self.method
     }
 
     pub fn path(&self) -> &str {
-        str::from_utf8(self.slice(&self.path)).unwrap()
+        &*self.path
     }
 
     pub fn version(&self) -> u8 {
@@ -39,12 +33,9 @@ impl Request {
     }
 
     pub fn body(&self) -> &str {
-        str::from_utf8(&self.body).unwrap()
+        &*self.body
     }
 
-    fn slice(&self, slice: &Slice) -> &[u8] {
-        &self.data[slice.0..slice.1]
-    }
 }
 
 impl fmt::Debug for Request {
@@ -71,45 +62,39 @@ pub fn decode(buf: &mut BytesMut) -> io::Result<Option<Request>> {
             httparse::Status::Partial => return Ok(None),
         };
 
-        let toslice = |a: &[u8]| {
-            let start = a.as_ptr() as usize - buf.as_ptr() as usize;
-            assert!(start < buf.len());
-            (start, start + a.len())
-        };
-
-        (toslice(r.method.unwrap().as_bytes()),
-         toslice(r.path.unwrap().as_bytes()),
+        (r.method.unwrap().to_owned(),
+         r.path.unwrap().to_owned(),
          r.version.unwrap(),
          r.headers
           .iter()
-          .map(|h| (toslice(h.name.as_bytes()), toslice(h.value)))
+          .map(|h| (h.name.to_owned(), String::from_utf8(h.value.to_vec()).unwrap()))
           .collect(),
          amt)
     };
+
+    // Consume the buffer that we copied the header data out of.
+    buf.split_to(amt);
 
     Ok(Request {
         method: method,
         path: path,
         version: version,
         headers: headers,
-        data: buf.split_to(amt),
-        body: buf.take(),
+        body: String::from_utf8(buf.take().to_vec()).unwrap(),
     }.into())
 }
 
 pub struct RequestHeaders<'req> {
-    headers: slice::Iter<'req, (Slice, Slice)>,
+    headers: slice::Iter<'req, (String, String)>,
     req: &'req Request,
 }
 
 impl<'req> Iterator for RequestHeaders<'req> {
-    type Item = (&'req str, &'req [u8]);
+    type Item = (&'req String, &'req String);
 
-    fn next(&mut self) -> Option<(&'req str, &'req [u8])> {
+    fn next(&mut self) -> Option<(&'req String, &'req String)> {
         self.headers.next().map(|&(ref a, ref b)| {
-            let a = self.req.slice(a);
-            let b = self.req.slice(b);
-            (str::from_utf8(a).unwrap(), b)
+            (&*a, &*b)
         })
     }
 }

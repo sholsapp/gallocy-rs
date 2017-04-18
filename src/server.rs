@@ -10,12 +10,15 @@ use minihttp::{Request, Response};
 use messages::{Message};
 
 
+/// State to share between tokio service instances.
+///
 pub struct StateService {
     // Shared state for implementing Raft consensus.
     pub state: Arc<Mutex<state::State>>,
 }
 
-
+/// Implement a tokio service.
+///
 impl Service for StateService {
 
     // Service request type - see tokio.rs.
@@ -48,7 +51,6 @@ impl Service for StateService {
         future::ok(resp)
     }
 }
-
 
 impl StateService {
 
