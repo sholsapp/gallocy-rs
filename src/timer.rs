@@ -131,7 +131,7 @@ impl Timer {
 
 #[test]
 fn it_works() {
-    let cv = Arc::new(Condvar::new());
+    let cv = Arc::new(Mutex::new(Condvar::new()));
     let d = Duration::from_secs(5);
     let j = Duration::from_secs(0);
     let t = Timer::new(d, j, cv);
@@ -140,7 +140,7 @@ fn it_works() {
 
 #[test]
 fn timer_start() {
-    let cv = Arc::new(Condvar::new());
+    let cv = Arc::new(Mutex::new(Condvar::new()));
     let mut t = Timer::new(Duration::from_millis(50),
                            Duration::from_millis(0),
                            cv);
@@ -155,7 +155,7 @@ fn timer_start() {
 
 #[test]
 fn timer_reset() {
-    let cv = Arc::new(Condvar::new());
+    let cv = Arc::new(Mutex::new(Condvar::new()));
     let mut t = Timer::new(Duration::from_millis(50),
                            Duration::from_millis(10),
                            cv);
