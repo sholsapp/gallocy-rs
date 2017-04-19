@@ -1,15 +1,16 @@
-use std::{io, slice, str, fmt};
+use std::{io, slice, str};
+use std::fmt::{self, Write, Debug};
 
-use bytes::BytesMut;
+use bytes::{BytesMut, BufMut};
 
 use httparse;
 
 pub struct Request {
-    method: String,
-    path: String,
-    version: u8,
-    headers: Vec<(String, String)>,
-    body: String,
+    pub method: String,
+    pub path: String,
+    pub version: u8,
+    pub headers: Vec<(String, String)>,
+    pub body: String,
 }
 
 impl Request {
@@ -45,9 +46,8 @@ impl fmt::Debug for Request {
 }
 
 pub fn decode(buf: &mut BytesMut) -> io::Result<Option<Request>> {
-    // TODO: we should grow this headers array if parsing fails and asks
-    //       for more headers
     let (method, path, version, headers, amt) = {
+        // XXX: We only support up to 16 headers.
         let mut headers = [httparse::EMPTY_HEADER; 16];
         let mut r = httparse::Request::new(&mut headers);
         let status = try!(r.parse(buf).map_err(|e| {
@@ -80,8 +80,32 @@ pub fn decode(buf: &mut BytesMut) -> io::Result<Option<Request>> {
         path: path,
         version: version,
         headers: headers,
+        // Consume the rest of the buffer as the request body.
         body: String::from_utf8(buf.take().to_vec()).unwrap(),
     }.into())
+}
+
+pub fn encode(request: Request, buf: &mut BytesMut) {
+    write!(buf, "\
+        {} {} HTTP/1.1\r\n\
+        ", request.method, request.path).unwrap();
+    for &(ref k, ref v) in &request.headers {
+        push(buf, k.as_bytes());
+        push(buf, ": ".as_bytes());
+        push(buf, v.as_bytes());
+        push(buf, "\r\n".as_bytes());
+    }
+    push(buf, "\r\n".as_bytes());
+    push(buf, request.body.as_bytes());
+}
+
+
+fn push(buf: &mut BytesMut, data: &[u8]) {
+    buf.reserve(data.len());
+    unsafe {
+        buf.bytes_mut()[..data.len()].copy_from_slice(data);
+        buf.advance_mut(data.len());
+    }
 }
 
 pub struct RequestHeaders<'req> {
@@ -90,6 +114,7 @@ pub struct RequestHeaders<'req> {
 }
 
 impl<'req> Iterator for RequestHeaders<'req> {
+
     type Item = (&'req String, &'req String);
 
     fn next(&mut self) -> Option<(&'req String, &'req String)> {
@@ -97,4 +122,21 @@ impl<'req> Iterator for RequestHeaders<'req> {
             (&*a, &*b)
         })
     }
+}
+
+#[test]
+fn test_request_encode() {
+    let mut buf = BytesMut::with_capacity(1024);
+    let request = Request {
+        method: "GET".to_string(),
+        path: "/".to_string(),
+        version: 1,
+        headers: vec![
+            ("User-Agent".to_string(), "rust".to_string()),
+            ("Accepts".to_string(), "text/html".to_string()),
+        ],
+        body: "".to_string(),
+    };
+    encode(request, &mut buf);
+    assert!(String::from_utf8(buf.to_vec()).unwrap() == "GET / HTTP/1.1\r\nUser-Agent: rust\r\nAccepts: text/html\r\n\r\n");
 }

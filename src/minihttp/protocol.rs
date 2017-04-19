@@ -48,7 +48,9 @@ impl<T: AsyncRead + AsyncWrite + 'static> ServerProto<T> for Http {
 /// Implements a client-side HTTP protocol.
 ///
 impl<T: AsyncRead + AsyncWrite + 'static> ClientProto<T> for Http {
+    // XXX: Fix me.
     type Request = Response;
+    // XXX: Fix me.
     type Response = Request;
     type Transport = Framed<T, HttpCodec>;
     type BindTransport = io::Result<Framed<T, HttpCodec>>;
