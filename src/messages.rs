@@ -1,7 +1,10 @@
 use std;
 
 #[derive(RustcEncodable,RustcDecodable)]
-pub struct Message {
+pub struct HealthCheck {
+    pub commit_index: u64,
+    pub current_term: u64,
+    pub last_applied: u64,
     pub message: String,
 }
 

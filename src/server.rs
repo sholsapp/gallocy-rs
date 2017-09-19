@@ -7,7 +7,7 @@ use futures::future;
 
 use state;
 use minihttp::{Request, Response};
-use messages::{Message};
+use messages::{HealthCheck};
 
 
 /// State to share between tokio service instances.
@@ -57,8 +57,13 @@ impl StateService {
     /// The health check route handler.
     ///
     fn health_check(&self, _: &Request) -> Response {
-        let msg = Message {
+        let state: &state::State = &self.state.lock().unwrap();
+        let msg = HealthCheck {
             message: "GOOD".to_owned(),
+            current_term: state.get_current_term(),
+            commit_index: state.get_commit_index(),
+            last_applied: state.get_last_applied(),
+
         };
         let mut resp = Response::new();
         resp.header("Content-Type", "application/json");
@@ -71,7 +76,7 @@ impl StateService {
     ///
     fn request_vote(&self, req: &Request) -> Response {
         let mut resp = Response::new();
-        if let Ok(json) = rustc_serialize::json::decode(req.body()) as Result<Message, rustc_serialize::json::DecoderError> {
+        if let Ok(json) = rustc_serialize::json::decode(req.body()) as Result<HealthCheck, rustc_serialize::json::DecoderError> {
             info!("current term: {}", self.state.lock().unwrap().get_current_term());
             resp.header("Content-Type", "application/json");
             resp.status_code(200, "OK");
