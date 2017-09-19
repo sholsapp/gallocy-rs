@@ -24,7 +24,7 @@ pub struct Timer {
     // Internal thread handle to join on shutdown.
     handle: Option<std::thread::JoinHandle<()>>,
     // Condition variable signalled if/when timer expires.
-    pub timed_out: Arc<Mutex<Condvar>>,
+    pub timed_out: Arc<(Mutex<bool>, Condvar)>,
     // The amount of time to count down from.
     pub step: Duration,
     // The amount of time, if any, to randomize the count down from.
@@ -44,7 +44,7 @@ impl Timer {
     /// * `jitter` - The duration of time to randomize each count down.
     /// * `timed_out` - Condition to signal if the timer expires.
     ///
-    pub fn new(step: Duration, jitter: Duration, timed_out: Arc<Mutex<Condvar>>) -> Timer {
+    pub fn new(step: Duration, jitter: Duration, timed_out: Arc<(Mutex<bool>, Condvar)>) -> Timer {
         Timer {
             handle: None,
             alive: Arc::new(AtomicBool::new(false)),
@@ -80,7 +80,7 @@ impl Timer {
     fn spin(alive: Arc<AtomicBool>,
             cv: Arc<Condvar>,
             m: Arc<Mutex<bool>>,
-            timed_out: Arc<Mutex<Condvar>>,
+            timed_out: Arc<(Mutex<bool>, Condvar)>,
             expiries: Arc<AtomicUsize>,
             step: Duration,
             jitter: Duration) {
@@ -91,7 +91,9 @@ impl Timer {
                 Ok((_, result)) => {
                     if result.timed_out() {
                         expiries.fetch_add(1, Ordering::SeqCst);
-                        timed_out.lock().unwrap().notify_all();
+                        // XXX: Should we lock before notifying? Derp.
+                        let &(ref timed_out_lock, ref timed_out_cv) = &*timed_out;
+                        timed_out_cv.notify_all();
                     }
                 },
                 Err(e) => {
