@@ -18,9 +18,9 @@ pub struct State {
     last_applied: u64,
     state: RaftState,
     timer: Arc<Mutex<timer::Timer>>,
-    timed_out: Arc<Mutex<Condvar>>,
+    timed_out: Arc<(Mutex<bool>, Condvar)>,
     // log: String,
-    // voted_for: String, 
+    // voted_for: String,
 }
 
 // TODO(sholsapp): When "associated const" or equivalent lands in stable, or
@@ -33,7 +33,7 @@ const LEADER_JITTER: u64 = 0;
 
 impl State {
     pub fn new() -> State {
-        let timed_out = Arc::new(Mutex::new(Condvar::new()));
+        let timed_out = Arc::new((Mutex::new(false), Condvar::new()));
         State {
             current_term: 0,
             commit_index: 0,
@@ -75,6 +75,10 @@ impl State {
     pub fn set_last_applied(&mut self, index: u64) -> u64 {
         self.last_applied = index;
         self.last_applied
+    }
+
+    pub fn get_timer_cv(&self) -> Arc<(Mutex<bool>, Condvar)> {
+        self.timed_out.clone()
     }
 
     /// Start underlying workers.

@@ -48,8 +48,21 @@ pub fn main() {
     let addr = format!("{}:{}", host, port).parse().unwrap();
     let state = Arc::new(Mutex::new(state::State::new()));
     info!("Serving on {}...", addr);
+
+    state.lock().unwrap().start();
+
+    let machine_state = Arc::clone(&state);
+    std::thread::spawn(move || {
+        let machine = machine::Machine {
+            state: machine_state,
+        };
+        machine.work();
+    });
+
+    // Closure must implement Fn, and FnOnce is not acceptable. Do Arc::clone inside closure to
+    // make it usable more than once.
     TcpServer::new(Http, addr)
         .serve(move || Ok(server::StateService {
-            state: state.clone(),
+            state: Arc::clone(&state),
         }));
 }
