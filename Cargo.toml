@@ -1,5 +1,5 @@
 [package]
-name = "gallocy-rs"
+name = "raft"
 version = "0.1.0"
 authors = ["Stephen Holsapple <sholsapp@gmail.com>"]
 
@@ -22,5 +22,9 @@ tokio-proto = "0.1.1"
 tokio-service = "0.1.0"
 
 [[bin]]
-name = "gallocy-rs"
-path = "src/lib.rs"
+name = "server"
+path = "src/bin/daemon.rs"
+
+[[bin]]
+name = "client"
+path = "src/bin/client.rs"

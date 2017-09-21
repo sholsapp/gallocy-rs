@@ -1,3 +1,4 @@
+use std::{io};
 use std::fmt::{self, Write, Debug};
 
 use bytes::{BytesMut, BufMut};
@@ -44,6 +45,16 @@ impl Debug for Response {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "<HTTP Response {} {}>", self.status_message, self.response)
     }
+}
+
+pub fn decode(buf: &mut BytesMut) -> io::Result<Option<Response>> {
+    // XXX: Implement me.
+    info!("Deserializing response obj!");
+    Ok(Response {
+        headers: Vec::new(),
+        response: "ehlo world - not implemented".to_string(),
+        status_message: StatusMessage::Ok,
+    }.into())
 }
 
 pub fn encode(msg: Response, buf: &mut BytesMut) {

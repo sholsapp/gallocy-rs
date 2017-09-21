@@ -1,9 +1,8 @@
 extern crate rand;
 
 use std;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Mutex, Condvar};
+use std::sync::{Arc, Mutex, Condvar};
 use std::time::Duration;
 
 /// A countdown timer.

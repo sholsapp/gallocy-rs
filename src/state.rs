@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use timer;
 
-#[derive(Clone)]
+#[derive(Clone,PartialEq)]
 pub enum RaftState {
     FOLLOWER,
     LEADER,
@@ -26,8 +26,8 @@ pub struct State {
 // TODO(sholsapp): When "associated const" or equivalent lands in stable, or
 // when we're allowed to use calls in a constant declaration, we should fix
 // this so that type is std::time::Duration instead of u64.
-const FOLLOWER_STEP: u64 = 2000;
-const FOLLOWER_JITTER: u64 = 500;
+const FOLLOWER_STEP: u64 = 5000;
+const FOLLOWER_JITTER: u64 = 1000;
 const LEADER_STEP: u64 = 500;
 const LEADER_JITTER: u64 = 0;
 
@@ -77,6 +77,20 @@ impl State {
         self.last_applied
     }
 
+    pub fn get_state(&self) -> RaftState {
+        self.state.clone()
+    }
+
+    pub fn set_state(&mut self, new_state: RaftState) -> RaftState {
+        self.state = new_state;
+        self.state.clone()
+    }
+
+    /// Get the timer condition that indicates timeout.
+    ///
+    /// Any operations that depends on a signal that indicates timeout, e.g., for determining
+    /// leader timeout, should use this condition.
+    ///
     pub fn get_timer_cv(&self) -> Arc<(Mutex<bool>, Condvar)> {
         self.timed_out.clone()
     }
