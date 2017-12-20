@@ -1,10 +1,10 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::sync::Condvar;
 use std::time::Duration;
 
 use timer;
 
-#[derive(Clone,PartialEq)]
+#[derive(Copy,Clone,PartialEq)]
 pub enum RaftState {
     FOLLOWER,
     LEADER,
@@ -13,14 +13,15 @@ pub enum RaftState {
 
 #[derive(Clone)]
 pub struct State {
-    current_term: u64,
-    commit_index: u64,
-    last_applied: u64,
-    state: RaftState,
+    current_term: Arc<RwLock<u64>>,
+    commit_index: Arc<RwLock<u64>>,
+    last_applied: Arc<RwLock<u64>>,
+    state: Arc<RwLock<RaftState>>,
     timer: Arc<Mutex<timer::Timer>>,
     timed_out: Arc<(Mutex<bool>, Condvar)>,
     // log: String,
     // voted_for: String,
+    lock: Arc<RwLock<bool>>,
 }
 
 // TODO(sholsapp): When "associated const" or equivalent lands in stable, or
@@ -31,59 +32,65 @@ const FOLLOWER_JITTER: u64 = 1000;
 const LEADER_STEP: u64 = 500;
 const LEADER_JITTER: u64 = 0;
 
+
 impl State {
     pub fn new() -> State {
         let timed_out = Arc::new((Mutex::new(false), Condvar::new()));
         State {
-            current_term: 0,
-            commit_index: 0,
-            last_applied: 0,
-            state: RaftState::FOLLOWER,
+            current_term: Arc::new(RwLock::new(0)),
+            commit_index: Arc::new(RwLock::new(0)),
+            last_applied: Arc::new(RwLock::new(0)),
+            state: Arc::new(RwLock::new(RaftState::FOLLOWER)),
             // voted_for: "".to_owned(),
             // log: "".to_owned(),
-            timed_out: timed_out.clone(),
+            timed_out: Arc::clone(&timed_out),
             timer: Arc::new(Mutex::new(timer::Timer::new(
                 Duration::from_millis(FOLLOWER_STEP),
                 Duration::from_millis(FOLLOWER_JITTER),
-                timed_out.clone(),
+                Arc::clone(&timed_out),
             ))),
+            lock: Arc::new(RwLock::new(false)),
         }
     }
 
     pub fn get_current_term(&self) -> u64 {
-        self.current_term
+        *self.current_term.read().unwrap()
     }
 
-    pub fn set_current_term(&mut self, term: u64) -> u64 {
-        self.current_term = term;
-        self.current_term
+    pub fn set_current_term(&self, term: u64) -> u64 {
+        let mut _current_term = self.current_term.write().unwrap();
+        *_current_term = term;
+        *_current_term
     }
 
     pub fn get_commit_index(&self) -> u64 {
-        self.commit_index
+        *self.commit_index.read().unwrap()
     }
 
-    pub fn set_commit_index(&mut self, index: u64) -> u64 {
-        self.commit_index = index;
-        self.commit_index
+    pub fn set_commit_index(&self, index: u64) -> u64 {
+        let mut _commit_index = self.commit_index.write().unwrap();
+        *_commit_index = index;
+        *_commit_index
     }
 
     pub fn get_last_applied(&self) -> u64 {
-        self.last_applied
+        *self.last_applied.read().unwrap()
     }
 
-    pub fn set_last_applied(&mut self, index: u64) -> u64 {
-        self.last_applied = index;
-        self.last_applied
+    pub fn set_last_applied(&self, index: u64) -> u64 {
+        let mut _last_applied = self.last_applied.write().unwrap();
+        *_last_applied = index;
+        *_last_applied
     }
 
     pub fn get_state(&self) -> RaftState {
-        self.state.clone()
+        *self.state.read().unwrap()
     }
 
-    pub fn set_state(&mut self, new_state: RaftState) -> RaftState {
-        self.state = new_state;
-        self.state.clone()
+    pub fn set_state(&self, new_state: RaftState) -> RaftState {
+        let mut _state = self.state.write().unwrap();
+        *_state = new_state;
+        *_state
     }
 
     /// Get the timer condition that indicates timeout.
@@ -92,14 +99,14 @@ impl State {
     /// leader timeout, should use this condition.
     ///
     pub fn get_timer_cv(&self) -> Arc<(Mutex<bool>, Condvar)> {
-        self.timed_out.clone()
+        Arc::clone(&self.timed_out)
     }
 
     /// Start underlying workers.
     ///
     /// This method must be called before the object is useable.
     ///
-    pub fn start(&mut self) {
+    pub fn start(&self) {
         // Unwrap to indicate that we should never fail while holding the lock.
         self.timer.lock().unwrap().start();
     }

@@ -5,7 +5,7 @@ extern crate env_logger;
 extern crate tokio_proto;
 
 use std::thread;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use clap::{Arg, App};
 use tokio_proto::TcpServer;
@@ -33,11 +33,11 @@ pub fn main() {
     let port = matches.value_of("port").unwrap_or("8080");
     let host = matches.value_of("host").unwrap_or("0.0.0.0");
     let addr = format!("{}:{}", host, port).parse().unwrap();
-    let state = Arc::new(Mutex::new(state::State::new()));
+    let state = Arc::new(state::State::new());
     info!("Serving on {}...", addr);
 
     // Initialize the state object, start timers, etc.
-    state.lock().unwrap().start();
+    state.start();
 
     // Initialize the finite state machine struct.
     let machine_state = Arc::clone(&state);

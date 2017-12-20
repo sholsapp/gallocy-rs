@@ -4,13 +4,13 @@ use state::{self, RaftState};
 
 pub struct Machine {
     // Shared state for implementing Raft consensus.
-    pub state: Arc<Mutex<state::State>>,
+    pub state: Arc<state::State>,
 }
 
 impl Machine {
     pub fn work(&self) {
         loop {
-            let state: &mut state::State = &mut self.state.lock().unwrap();
+            let state: &state::State = &*self.state;
 
             let timed_out: Arc<(Mutex<bool>, Condvar)> = state.get_timer_cv();
             let &(ref lock, ref cv) = &*timed_out;

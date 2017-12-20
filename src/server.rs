@@ -14,7 +14,7 @@ use messages::{HealthCheck};
 ///
 pub struct StateService {
     // Shared state for implementing Raft consensus.
-    pub state: Arc<Mutex<state::State>>,
+    pub state: Arc<state::State>,
 }
 
 /// Implement a tokio service.
@@ -57,7 +57,7 @@ impl StateService {
     /// The health check route handler.
     ///
     fn health_check(&self, _: &Request) -> Response {
-        let state: &state::State = &self.state.lock().unwrap();
+        let state: &state::State = &*self.state;
         let msg = HealthCheck {
             message: "GOOD".to_owned(),
             current_term: state.get_current_term(),
@@ -77,7 +77,7 @@ impl StateService {
     fn request_vote(&self, req: &Request) -> Response {
         let mut resp = Response::new();
         if let Ok(json) = rustc_serialize::json::decode(req.body()) as Result<HealthCheck, rustc_serialize::json::DecoderError> {
-            info!("current term: {}", self.state.lock().unwrap().get_current_term());
+            info!("current term: {}", self.state.get_current_term());
             resp.header("Content-Type", "application/json");
             resp.status_code(200, "OK");
             resp.body(&rustc_serialize::json::encode(&json).unwrap());
