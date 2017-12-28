@@ -4,14 +4,14 @@ extern crate env_logger;
 extern crate futures;
 extern crate raft;
 extern crate tokio_core;
+extern crate hyper;
 
+use futures::Future;
 use clap::{Arg, App};
-use futures::{future, Future};
 use tokio_core::reactor::Core;
-use std::time;
-use std::thread;
+use hyper::Client;
 
-use raft::client;
+//use raft::client;
 
 pub fn main() {
     let matches = App::new("client")
@@ -33,15 +33,12 @@ pub fn main() {
     let addr: String = format!("{}:{}", host, port).parse().unwrap();
 
     let mut core = Core::new().unwrap();
-    let handle = core.handle();
-    let address = addr.parse().unwrap();
-    let idk = core.run(
-        client::Client::connect(&address, &handle).and_then(|client| {
-            info!("Hi");
-            client.healthcheck()
-        })
-    ).unwrap();
+    let client = Client::new(&core.handle());
 
-    info!("RES: {:?}", idk);
+    let uri = format!("http://{}/healthcheck", addr).parse().unwrap();
+    let work = client.get(uri).map(|res| {
+        info!("Response: {}", res.status());
+    });
 
+    core.run(work).unwrap();
 }

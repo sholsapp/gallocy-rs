@@ -11,11 +11,10 @@ extern crate tokio_core;
 extern crate tokio_io;
 extern crate tokio_proto;
 extern crate tokio_service;
+extern crate hyper;
 
 pub mod state;
 pub mod timer;
 pub mod messages;
-pub mod minihttp;
 pub mod server;
-pub mod client;
 pub mod machine;

@@ -91,7 +91,7 @@ impl Timer {
                     if result.timed_out() {
                         expiries.fetch_add(1, Ordering::SeqCst);
                         // XXX: Should we lock before notifying? Derp.
-                        let &(ref timed_out_lock, ref timed_out_cv) = &*timed_out;
+                        let &(ref _timed_out_lock, ref timed_out_cv) = &*timed_out;
                         timed_out_cv.notify_all();
                     }
                 },

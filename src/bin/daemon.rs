@@ -3,17 +3,18 @@ extern crate raft;
 extern crate clap;
 extern crate env_logger;
 extern crate tokio_proto;
+extern crate hyper;
 
 use std::thread;
 use std::sync::Arc;
 
 use clap::{Arg, App};
-use tokio_proto::TcpServer;
 
 use raft::machine;
-use raft::minihttp::Http;
 use raft::server;
 use raft::state;
+
+use hyper::server::Http;
 
 pub fn main() {
     let matches = App::new("server")
@@ -48,10 +49,9 @@ pub fn main() {
         machine.work();
     });
 
-    // Closure must implement Fn, and FnOnce is not acceptable. Do Arc::clone inside closure to
-    // make it usable more than once.
-    TcpServer::new(Http, addr)
-        .serve(move || Ok(server::StateService {
-            state: Arc::clone(&state),
-        }));
+    let server = Http::new().bind(&addr, move || Ok(server::StateService {
+        state: Arc::clone(&state),
+    })).unwrap();
+
+    server.run().unwrap();
 }
