@@ -6,28 +6,6 @@ matrix:
   allow_failures:
     - rust: nightly
 
-before_install:
-  - rvm install ruby-2.2.0
-  - gem update --system 2.2.0
-
 script:
   # Run the actually build and test command
   - ./project deb
-
-after_success:
-  - ./project deb
-
-before_deploy:
-  - gem install deb-s3
-  - echo "$PATH"
-  - which deb-s3
-
-deploy:
-  provider: script
-  skip_cleanup: true
-  script: /home/travis/.rvm/gems/ruby-2.2.0/bin/deb-s3
-            upload
-            --bucket gallocy
-            --access-key-id $GALLOCY_S3_KEY_ID
-            --secret-access-key $GALLOCY_S3_KEY
-            build/*.deb
