@@ -31,10 +31,16 @@ pub fn main() {
                            .help("Port to listen on."))
                       .get_matches();
     drop(env_logger::init());
+
     let port = matches.value_of("port").unwrap_or("8080");
     let host = matches.value_of("host").unwrap_or("0.0.0.0");
     let addr = format!("{}:{}", host, port).parse().unwrap();
     let state = Arc::new(state::State::new());
+
+    state.add_peer(&"10.0.0.2:8080".to_owned());
+    state.add_peer(&"10.0.0.3:8080".to_owned());
+    state.add_peer(&"10.0.0.4:8080".to_owned());
+
     info!("Serving on {}...", addr);
 
     // Initialize the state object, start timers, etc.

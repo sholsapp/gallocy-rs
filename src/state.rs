@@ -21,7 +21,8 @@ pub struct State {
     timed_out: Arc<(Mutex<bool>, Condvar)>,
     // log: String,
     // voted_for: String,
-    lock: Arc<RwLock<bool>>,
+    //lock: Arc<RwLock<bool>>,
+    peers: Arc<RwLock<Vec<String>>>,
 }
 
 // TODO(sholsapp): When "associated const" or equivalent lands in stable, or
@@ -49,7 +50,8 @@ impl State {
                 Duration::from_millis(FOLLOWER_JITTER),
                 Arc::clone(&timed_out),
             ))),
-            lock: Arc::new(RwLock::new(false)),
+            //lock: Arc::new(RwLock::new(false)),
+            peers: Arc::new(RwLock::new(Vec::new())),
         }
     }
 
@@ -118,5 +120,10 @@ impl State {
     pub fn stop(&mut self) {
         // Unwrap to indicate that we should never fail while holding the lock.
         self.timer.lock().unwrap().stop();
+    }
+
+    pub fn add_peer(&self, peer: &String) {
+        let mut list = self.peers.write().unwrap();
+        (*list).push(peer.clone());
     }
 }
