@@ -62,6 +62,12 @@ sub_deb() {
 }
 
 
+sub_docker() {
+  sub_build
+  docker build -t "sholsapp/gallocy-rs" -f Dockerfile .
+}
+
+
 SUBCOMMAND=$1
 case $SUBCOMMAND in
   "" | "-h" | "--help")
