@@ -6,25 +6,33 @@ extern crate tokio_proto;
 extern crate hyper;
 extern crate rustc_serialize;
 
-use std::thread;
-use std::sync::Arc;
-use std::path::Path;
-use std::fs::File;
+use std::env;
 use std::error::Error;
+use std::fs::File;
 use std::io::Read;
+use std::path::Path;
+use std::sync::Arc;
+use std::thread;
 
-use clap::{Arg, App};
+use clap::App;
 
+use raft::config;
 use raft::machine;
 use raft::server;
 use raft::state;
-use raft::config;
 
 use hyper::server::Http;
 
 
-fn read_runtime_configuration() {
-    let path = Path::new("/Users/sholsapp/workspace/gallocy-rs/config.json");
+fn read_runtime_configuration() -> config::RuntimeConfiguration {
+    let config_path_key = "CONFIG";
+
+    let mut config_path_value = "config.json".to_owned();
+    if let Some(val) = env::var_os(config_path_key) {
+        config_path_value = val.to_str().unwrap().to_owned();
+    }
+
+    let path = Path::new(&config_path_value);
     let display = path.display();
 
     // Open the path in read-only mode, returns `io::Result<File>`
@@ -47,42 +55,37 @@ fn read_runtime_configuration() {
     let text = &*s;
 
     if let Ok(json) = rustc_serialize::json::decode(text) as Result<config::RuntimeConfiguration, rustc_serialize::json::DecoderError> {
-        // TODO(sholsapp): Implement me.. this is just dummy.
-        println!("IT WORKED");
+        json
     } else {
-        println!("NO WORK");
+        warn!("Failed to load configuration. Using default configuration.");
+        config::RuntimeConfiguration {
+            master: false,
+            me: "127.0.0.1".to_owned(),
+            peers: vec!(),
+            port: 8080,
+        }
     }
 
 
 }
 
 pub fn main() {
-    let matches = App::new("server")
+
+    env_logger::init();
+
+    let _ = App::new("server")
                       .version("0.1.0")
-                      .arg(Arg::with_name("host")
-                           .short("h")
-                           .long("host")
-                           .value_name("HOST")
-                           .help("Host to bind on."))
-                      .arg(Arg::with_name("port")
-                           .short("p")
-                           .long("port")
-                           .value_name("PORT")
-                           .help("Port to listen on."))
                       .get_matches();
-    //drop(env_logger::init(object));
 
-    read_runtime_configuration();
+    let config = read_runtime_configuration();
 
+    let addr = format!("{}:{}", config.me, config.port).parse().unwrap();
 
-    let port = matches.value_of("port").unwrap_or("8080");
-    let host = matches.value_of("host").unwrap_or("0.0.0.0");
-    let addr = format!("{}:{}", host, port).parse().unwrap();
     let state = Arc::new(state::State::new());
 
-    state.add_peer(&"10.0.0.2:8080".to_owned());
-    state.add_peer(&"10.0.0.3:8080".to_owned());
-    state.add_peer(&"10.0.0.4:8080".to_owned());
+    for peer in config.peers {
+        state.add_peer(&peer.to_owned());
+    }
 
     info!("Serving on {}...", addr);
 
