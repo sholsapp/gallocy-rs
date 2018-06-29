@@ -1,9 +1,9 @@
 #[macro_use] extern crate log;
-extern crate raft;
 extern crate clap;
 extern crate env_logger;
-extern crate tokio_proto;
+extern crate futures;
 extern crate hyper;
+extern crate raft;
 extern crate rustc_serialize;
 
 use std::env;
@@ -15,13 +15,14 @@ use std::sync::Arc;
 use std::thread;
 
 use clap::App;
+use futures::{future, Future};
+use hyper::Server;
+use hyper::service::service_fn;
 
 use raft::config;
 use raft::machine;
 use raft::server;
 use raft::state;
-
-use hyper::server::Http;
 
 
 fn read_runtime_configuration() -> config::RuntimeConfiguration {
@@ -54,7 +55,8 @@ fn read_runtime_configuration() -> config::RuntimeConfiguration {
 
     let text = &*s;
 
-    if let Ok(json) = rustc_serialize::json::decode(text) as Result<config::RuntimeConfiguration, rustc_serialize::json::DecoderError> {
+    if let Ok(json) = rustc_serialize::json::decode(text)
+            as Result<config::RuntimeConfiguration, rustc_serialize::json::DecoderError> {
         json
     } else {
         warn!("Failed to load configuration. Using default configuration.");
@@ -101,9 +103,22 @@ pub fn main() {
         machine.work();
     });
 
-    let server = Http::new().bind(&addr, move || Ok(server::StateService {
-        state: Arc::clone(&state),
-    })).unwrap();
+    let server_state = Arc::clone(&state);
 
-    server.run().unwrap();
+    hyper::rt::run(future::lazy(move || {
+
+        let new_service = move || {
+            let handler_state = Arc::clone(&server_state);
+            service_fn(move |req| {
+                server::call(req, Arc::clone(&handler_state))
+            })
+        };
+
+        let server = Server::bind(&addr)
+            .serve(new_service)
+            .map_err(|e| error!("Server error: {}", e));
+
+        server
+
+    }));
 }
