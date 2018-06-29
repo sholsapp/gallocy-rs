@@ -18,3 +18,4 @@ pub mod timer;
 pub mod messages;
 pub mod server;
 pub mod machine;
+pub mod config;

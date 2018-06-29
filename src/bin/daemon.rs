@@ -4,17 +4,57 @@ extern crate clap;
 extern crate env_logger;
 extern crate tokio_proto;
 extern crate hyper;
+extern crate rustc_serialize;
 
 use std::thread;
 use std::sync::Arc;
+use std::path::Path;
+use std::fs::File;
+use std::error::Error;
+use std::io::Read;
 
 use clap::{Arg, App};
 
 use raft::machine;
 use raft::server;
 use raft::state;
+use raft::config;
 
 use hyper::server::Http;
+
+
+fn read_runtime_configuration() {
+    let path = Path::new("/Users/sholsapp/workspace/gallocy-rs/config.json");
+    let display = path.display();
+
+    // Open the path in read-only mode, returns `io::Result<File>`
+    let mut file = match File::open(&path) {
+        // The `description` method of `io::Error` returns a string that
+        // describes the error
+        Err(why) => panic!("couldn't open {}: {}", display,
+                                                   why.description()),
+        Ok(file) => file,
+    };
+
+    // Read the file contents into a string, returns `io::Result<usize>`
+    let mut s = String::new();
+    match file.read_to_string(&mut s) {
+        Err(why) => panic!("couldn't read {}: {}", display,
+                                                   why.description()),
+        Ok(_) => print!("{} contains:\n{}", display, s),
+    }
+
+    let text = &*s;
+
+    if let Ok(json) = rustc_serialize::json::decode(text) as Result<config::RuntimeConfiguration, rustc_serialize::json::DecoderError> {
+        // TODO(sholsapp): Implement me.. this is just dummy.
+        println!("IT WORKED");
+    } else {
+        println!("NO WORK");
+    }
+
+
+}
 
 pub fn main() {
     let matches = App::new("server")
@@ -30,7 +70,10 @@ pub fn main() {
                            .value_name("PORT")
                            .help("Port to listen on."))
                       .get_matches();
-    drop(env_logger::init());
+    //drop(env_logger::init(object));
+
+    read_runtime_configuration();
+
 
     let port = matches.value_of("port").unwrap_or("8080");
     let host = matches.value_of("host").unwrap_or("0.0.0.0");
