@@ -3,15 +3,15 @@ extern crate clap;
 extern crate env_logger;
 extern crate futures;
 extern crate raft;
-extern crate tokio_core;
 extern crate hyper;
+extern crate tokio;
 
 use clap::{Arg, App};
-use hyper::Client;
-use hyper::rt::{self, lazy, Future, Stream};
+use hyper::{body, Body, Client, Method, Request, Response};
 
 
-pub fn main() {
+#[tokio::main]
+pub async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let matches = App::new("client")
         .version("0.1.0")
         .arg(Arg::with_name("host")
@@ -31,38 +31,26 @@ pub fn main() {
     let host: &str = matches.value_of("host").unwrap_or("0.0.0.0");
     let addr: String = format!("{}:{}", host, port).parse().unwrap();
 
-    // A runtime is needed to execute our asynchronous code.
-    rt::run(lazy(move || {
-        let client = Client::new();
+    info!("Remote address: {}", addr);
 
-        client
-            // Make a GET /ip to 'http://httpbin.org'
-            .get(format!("{}{}", addr, "/healthcheck").parse().unwrap())
+    // A runtime is needed to execute our asynchronous code. Instead of using the following, we use
+    // the #[tokio::main] macro on an async main function.
+    //  let mut rt = tokio::runtime::Runtime::new().unwrap();
+    let request = Request::builder()
+        .method(Method::GET)
+        .uri(format!("http://{}{}", addr, "/healthcheck"))
+        .body(Body::empty())
+        .unwrap();
 
-            // And then, if the request gets a response...
-            .and_then(|res| {
-                println!("status: {}", res.status());
+    let client = Client::new();
 
-                // Concatenate the body stream into a single buffer...
-                // This returns a new future, since we must stream body.
-                res.into_body().concat2()
-            })
+    let response : Response<Body> = client.request(request).await?;
 
-            // And then, if reading the full body succeeds...
-            .and_then(|body| {
-                // The body is just bytes, but let's print a string...
-                let s = ::std::str::from_utf8(&body).unwrap();
+    let body: Vec<u8> = body::to_bytes(response.into_body()).await?.to_vec();
 
-                println!("body: {}", s);
+    let s = ::std::str::from_utf8(&body).unwrap();
+    println!("Response: {}", s);
 
-                // and_then requires we return a new Future, and it turns
-                // out that Result is a Future that is ready immediately.
-                Ok(())
-            })
+    Ok(())
 
-            // Map any errors that might have happened...
-            .map_err(|err| {
-                println!("error: {}", err);
-            })
-    }));
 }

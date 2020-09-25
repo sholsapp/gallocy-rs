@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex, Condvar};
 
-use state::{self, RaftState};
-use messages::RequestVote;
+use crate::state::{self, RaftState};
+use crate::messages::RequestVote;
 
 pub struct Machine {
     // Shared state for implementing Raft consensus.

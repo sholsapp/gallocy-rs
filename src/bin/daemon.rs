@@ -1,13 +1,11 @@
 #[macro_use] extern crate log;
 extern crate clap;
 extern crate env_logger;
-extern crate futures;
 extern crate hyper;
 extern crate raft;
 extern crate rustc_serialize;
 
 use std::env;
-use std::error::Error;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
@@ -15,9 +13,9 @@ use std::sync::Arc;
 use std::thread;
 
 use clap::App;
-use futures::{future, Future};
 use hyper::Server;
-use hyper::service::service_fn;
+use hyper::service::{make_service_fn, service_fn};
+use std::convert::Infallible;
 
 use raft::config;
 use raft::machine;
@@ -41,7 +39,7 @@ fn read_runtime_configuration() -> config::RuntimeConfiguration {
         // The `description` method of `io::Error` returns a string that
         // describes the error
         Err(why) => panic!("couldn't open {}: {}", display,
-                                                   why.description()),
+                                                   why.to_string()),
         Ok(file) => file,
     };
 
@@ -49,7 +47,7 @@ fn read_runtime_configuration() -> config::RuntimeConfiguration {
     let mut s = String::new();
     match file.read_to_string(&mut s) {
         Err(why) => panic!("couldn't read {}: {}", display,
-                                                   why.description()),
+                                                   why.to_string()),
         Ok(_) => print!("{} contains:\n{}", display, s),
     }
 
@@ -71,7 +69,8 @@ fn read_runtime_configuration() -> config::RuntimeConfiguration {
 
 }
 
-pub fn main() {
+#[tokio::main]
+pub async fn main() {
 
     env_logger::init();
 
@@ -105,20 +104,19 @@ pub fn main() {
 
     let server_state = Arc::clone(&state);
 
-    hyper::rt::run(future::lazy(move || {
-
-        let new_service = move || {
-            let handler_state = Arc::clone(&server_state);
-            service_fn(move |req| {
+    let make_svc = make_service_fn(|_conn| {
+        let handler_state = Arc::clone(&server_state);
+        async move {
+            Ok::<_, Infallible>(service_fn(move |req| {
                 server::call(req, Arc::clone(&handler_state))
-            })
-        };
+            }))
+        }
+    });
 
-        let server = Server::bind(&addr)
-            .serve(new_service)
-            .map_err(|e| error!("Server error: {}", e));
+    let server = Server::bind(&addr).serve(make_svc);
 
-        server
+    if let Err(e) = server.await {
+        eprintln!("Error: {}", e);
+    }
 
-    }));
 }

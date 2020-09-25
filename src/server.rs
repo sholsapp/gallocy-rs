@@ -1,36 +1,30 @@
 use std::sync::Arc;
-
+use hyper::{body, Body, Request, Response, StatusCode, Method};
 use rustc_serialize;
-use futures::future::Future;
-use hyper::{Body, Request, Response, StatusCode, Chunk};
-use hyper;
-use futures::Stream;
-use futures;
 
-use state;
-use messages::{HealthCheck};
+use crate::state;
+use crate::messages::{HealthCheck};
+
+
+type GenericError = Box<dyn std::error::Error + Send + Sync>;
 
 
 /// Call the web server's request handler(s).
 ///
-pub fn call(req: Request<Body>, state: Arc<state::State>)
-        -> Box<Future<Item=Response<Body>, Error=hyper::Error> + Send> {
+pub async fn call(req: Request<Body>, state: Arc<state::State>)
+        -> Result<Response<Body>, GenericError> {
 
     info!("{:?}", &req);
 
     let state = Arc::clone(&state);
 
-    let path: String = req.uri().path().to_owned();
+    let (parts, stream) = req.into_parts();
 
-    // Synchronously wait for and build an entire response body. WTF are these people thinking.. of
-    // course we need the entire body to parse JSON.
-    let body: Vec<u8> = req.into_body().map(|chunk| {
-        chunk.iter().map(|byte| byte.clone()).collect::<Vec<u8>>()
-    }).concat2().wait().unwrap();
+    let body: Vec<u8> = body::to_bytes(stream).await?.to_vec();
 
-    let resp = match &*path {
-        "/healthcheck" => health_check(state, body),
-        "/raft/request_vote" => request_vote(state, body),
+    let resp = match (parts.method, parts.uri.path()) {
+        (Method::GET, "/healthcheck") => health_check(state, body),
+        (Method::POST, "/raft/request_vote") => request_vote(state, body),
         //"/raft/append_entries" => self.not_found(&req),
         //"/raft/request" => self.not_found(&req),
         _ => not_found(state, body),
@@ -38,8 +32,7 @@ pub fn call(req: Request<Body>, state: Arc<state::State>)
 
     info!("{:?}", &resp);
 
-    // Return a future to satisfy `and_then` trait.
-    Box::new(futures::future::ok(resp))
+    Ok(resp)
 }
 
 /// The health check route handler.

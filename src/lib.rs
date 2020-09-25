@@ -7,10 +7,11 @@ extern crate httparse;
 extern crate net2;
 extern crate rustc_serialize;
 extern crate time;
-extern crate tokio_core;
-extern crate tokio_io;
-extern crate tokio_proto;
-extern crate tokio_service;
+extern crate tokio;
+//extern crate tokio_core;
+//extern crate tokio_io;
+//extern crate tokio_proto;
+//extern crate tokio_service;
 extern crate hyper;
 
 pub mod state;

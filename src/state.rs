@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::sync::Condvar;
 use std::time::Duration;
 
-use timer;
+use crate::timer;
 
 #[derive(Copy,Clone,PartialEq)]
 pub enum RaftState {
