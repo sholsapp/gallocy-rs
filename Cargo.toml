@@ -19,15 +19,3 @@ rustc-serialize = "0.3"
 serde_json = "0.8"
 time = "0.1"
 tokio = { version = "0.2", features = ["full"] }
-
-[[bin]]
-name = "server"
-path = "src/bin/daemon.rs"
-
-[[bin]]
-name = "client"
-path = "src/bin/client.rs"
-
-[[bin]]
-name = "multiclient"
-path = "src/bin/multiclient.rs"
